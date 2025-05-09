@@ -29,9 +29,12 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cold.nitrogen.secretcamera.data.respository.CameraRepository
+import cold.nitrogen.secretcamera.ui.screen.state.CameraMode
 import cold.nitrogen.secretcamera.ui.screen.state.CameraUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -41,8 +44,8 @@ class CameraViewModel @Inject constructor(
     private val repository: CameraRepository
 ) : ViewModel() {
 
-    var uiState by mutableStateOf(CameraUiState())
-        private set
+    private val _uiState = MutableStateFlow(CameraUiState())
+    val uiStateFlow = _uiState.asStateFlow()
 
     private var imageCapture: ImageCapture? = null
     private var videoCapture: VideoCapture<Recorder>? = null
@@ -83,6 +86,10 @@ class CameraViewModel @Inject constructor(
                 exc.printStackTrace()
             }
         }, ContextCompat.getMainExecutor(context))
+    }
+
+    fun setMode(newMode: CameraMode) {
+        _uiState.value = _uiState.value.copy(mode = newMode)
     }
 
     fun takePhoto(context: Context) {
@@ -134,7 +141,7 @@ class CameraViewModel @Inject constructor(
         if (curRecording != null) {
             curRecording.stop()
             recording = null
-            uiState = uiState.copy(isRecording = false)
+            _uiState.value = _uiState.value.copy(isRecording = false)
             Toast.makeText(context, "Recording?", Toast.LENGTH_SHORT).show()
             return
         }
@@ -155,7 +162,7 @@ class CameraViewModel @Inject constructor(
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI
         ).setContentValues(contentValues).build()
 
-        uiState = uiState.copy(isRecording = true)
+        _uiState.value = _uiState.value.copy(isRecording = true)
 
         recording = videoCapture.output
             .prepareRecording(context, outputOptions)
@@ -172,7 +179,7 @@ class CameraViewModel @Inject constructor(
                             Log.d("SecretCamera", "录像完成: ${event.outputResults.outputUri}")
                             Toast.makeText(context, "录像已保存", Toast.LENGTH_SHORT).show()
                         }
-                        uiState = uiState.copy(isRecording = false)
+                        _uiState.value = _uiState.value.copy(isRecording = false)
                         recording = null
                     }
                 }

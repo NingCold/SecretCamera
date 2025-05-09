@@ -2,6 +2,7 @@ package cold.nitrogen.secretcamera.ui.screen
 
 import android.Manifest
 import android.os.Build
+import android.widget.Toast
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +17,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import cold.nitrogen.secretcamera.ui.screen.state.CameraMode
+import cold.nitrogen.secretcamera.ui.screen.state.CameraUiState
 import cold.nitrogen.secretcamera.ui.viewmodel.CameraViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -35,6 +39,9 @@ import com.google.accompanist.permissions.rememberMultiplePermissionsState
 @Composable
 fun CameraScreen() {
     val viewModel: CameraViewModel = hiltViewModel()
+
+    val uiState by viewModel.uiStateFlow.collectAsState()
+
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val previewView = remember { PreviewView(context) }
@@ -57,9 +64,8 @@ fun CameraScreen() {
             permissionsList.launchMultiplePermissionRequest()
             requestedPermissions = true
         }
+        viewModel.startCamera(context, lifecycleOwner, previewView)
     }
-
-    viewModel.startCamera(context, lifecycleOwner, previewView)
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -85,17 +91,48 @@ fun CameraScreen() {
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 Button(
-                    onClick = { viewModel.takePhoto(context) },
+                    onClick = { viewModel.setMode(CameraMode.PHOTO) }
                 ) {
-                    Text("拍照")
+                    Text("Photo")
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
                 Button(
-                    onClick = { viewModel.captureVideo(context) },
+                    onClick = { viewModel.setMode(CameraMode.VIDEO) }
                 ) {
-                    Text(if (viewModel.uiState.isRecording) "停止录像" else "开始录像")
+                    Text("Video")
+                }
+
+//                Button(
+//                    onClick = { viewModel.takePhoto(context) },
+//                ) {
+//                    Text("拍照")
+//                }
+//
+//                Spacer(modifier = Modifier.height(8.dp))
+//
+//                Button(
+//                    onClick = { viewModel.captureVideo(context) },
+//                ) {
+//                    Text(if (viewModel.uiState.isRecording) "停止录像" else "开始录像")
+//                }
+            }
+
+            when (uiState.mode) {
+                CameraMode.PHOTO -> {
+                    Button(
+                        onClick = { viewModel.takePhoto(context) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Photo")
+                    }
+                }
+                CameraMode.VIDEO -> {
+                    Button(
+                        onClick = { viewModel.captureVideo(context) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (uiState.isRecording) "Stop" else "Start")
+                    }
                 }
             }
         }
