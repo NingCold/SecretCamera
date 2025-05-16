@@ -7,15 +7,21 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.navigation.NavController
+import cold.nitrogen.secretcamera.ui.navigation.Routes
 import cold.nitrogen.secretcamera.ui.screen.state.CameraMode
 import cold.nitrogen.secretcamera.ui.screen.state.CameraUiState
 import cold.nitrogen.secretcamera.ui.viewmodel.CameraViewModel
@@ -37,7 +45,7 @@ import com.google.accompanist.permissions.rememberMultiplePermissionsState
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun CameraScreen() {
+fun CameraScreen(navController: NavController) {
     val viewModel: CameraViewModel = hiltViewModel()
 
     val uiState by viewModel.uiStateFlow.collectAsState()
@@ -59,12 +67,14 @@ fun CameraScreen() {
 
     var requestedPermissions by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(permissionsList.allPermissionsGranted) {
         if (!requestedPermissions) {
             permissionsList.launchMultiplePermissionRequest()
             requestedPermissions = true
         }
-        viewModel.startCamera(context, lifecycleOwner, previewView)
+        if (permissionsList.allPermissionsGranted) {
+            viewModel.startCamera(context, lifecycleOwner, previewView)
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -87,54 +97,65 @@ fun CameraScreen() {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                    .padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Button(
-                    onClick = { viewModel.setMode(CameraMode.PHOTO) }
+                    onClick = { viewModel.setMode(CameraMode.PHOTO) },
+                    modifier = Modifier.weight(1f)
                 ) {
                     Text("Photo")
                 }
 
                 Button(
-                    onClick = { viewModel.setMode(CameraMode.VIDEO) }
+                    onClick = { viewModel.setMode(CameraMode.VIDEO) },
+                    modifier = Modifier.weight(1f)
                 ) {
                     Text("Video")
                 }
-
-//                Button(
-//                    onClick = { viewModel.takePhoto(context) },
-//                ) {
-//                    Text("拍照")
-//                }
-//
-//                Spacer(modifier = Modifier.height(8.dp))
-//
-//                Button(
-//                    onClick = { viewModel.captureVideo(context) },
-//                ) {
-//                    Text(if (viewModel.uiState.isRecording) "停止录像" else "开始录像")
-//                }
             }
-
-            when (uiState.mode) {
-                CameraMode.PHOTO -> {
-                    Button(
-                        onClick = { viewModel.takePhoto(context) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Photo")
-                    }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = {
+                        when (uiState.mode) {
+                            CameraMode.PHOTO -> viewModel.takePhoto(context)
+                            CameraMode.VIDEO -> viewModel.captureVideo(context)
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(3f)
+                        .padding(end = 8.dp)
+                ) {
+                    Text(
+                        when (uiState.mode) {
+                            CameraMode.PHOTO -> "Take Photo"
+                            CameraMode.VIDEO -> if (uiState.isRecording) "Start" else "Stop"
+                        }
+                    )
                 }
-                CameraMode.VIDEO -> {
-                    Button(
-                        onClick = { viewModel.captureVideo(context) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(if (uiState.isRecording) "Stop" else "Start")
-                    }
+
+                Button(
+                    onClick = { navController.navigate(Routes.SETTINGS) },
+                    modifier = Modifier
+                        .weight(1f),
+                    shape = CircleShape,
+                    contentPadding = PaddingValues(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings"
+                    )
                 }
             }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.stopCamera()
         }
     }
 }

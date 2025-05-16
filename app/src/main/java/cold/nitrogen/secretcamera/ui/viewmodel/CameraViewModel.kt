@@ -43,13 +43,13 @@ import java.util.Locale
 class CameraViewModel @Inject constructor(
     private val repository: CameraRepository
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(CameraUiState())
     val uiStateFlow = _uiState.asStateFlow()
 
     private var imageCapture: ImageCapture? = null
     private var videoCapture: VideoCapture<Recorder>? = null
     private var recording: Recording? = null
+    private var cameraProvider: ProcessCameraProvider? = null
 
     fun startCamera(
         context: Context,
@@ -57,25 +57,26 @@ class CameraViewModel @Inject constructor(
         previewView: PreviewView
     ) {
         val cameraProviderFuture = ProcessCameraProvider.Companion.getInstance(context)
-        imageCapture = ImageCapture.Builder().build()
-
-        val recorder = Recorder.Builder()
-            .setQualitySelector(QualitySelector.from(Quality.HIGHEST))
-            .build()
-        videoCapture = VideoCapture.withOutput(recorder)
 
         cameraProviderFuture.addListener({
-            val cameraProvider = cameraProviderFuture.get()
+            cameraProvider = cameraProviderFuture.get()
 
             val preview = Preview.Builder()
                 .build()
                 .also {
-                    it.surfaceProvider = previewView.surfaceProvider
+                    it.setSurfaceProvider(previewView.surfaceProvider)
                 }
 
+            imageCapture = ImageCapture.Builder().build()
+
+            val recorder = Recorder.Builder()
+                .setQualitySelector(QualitySelector.from(Quality.HIGHEST))
+                .build()
+            videoCapture = VideoCapture.withOutput(recorder)
+
             try {
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
+                cameraProvider?.unbindAll()
+                cameraProvider?.bindToLifecycle(
                     lifecycleOwner,
                     CameraSelector.DEFAULT_BACK_CAMERA,
                     preview,
@@ -184,5 +185,21 @@ class CameraViewModel @Inject constructor(
                     }
                 }
             }
+    }
+
+    fun stopCamera() {
+        Log.d("SecretCamera", "Stop")
+        try {
+            recording?.stop()
+            recording = null
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        cameraProvider?.unbindAll()
+        cameraProvider = null
+
+        imageCapture = null
+        videoCapture = null
     }
 }
